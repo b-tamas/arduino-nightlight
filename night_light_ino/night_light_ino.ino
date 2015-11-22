@@ -1,12 +1,39 @@
 #include <Boards.h>
-
+#include <SoftwareSerial.h>// import the serial library
 
 #include <EEPROM.h>;
 
+
+SoftwareSerial BTSerial(10, 11); // RX, TX
+int ledpin=13; // led on D13 will show blink on / off
+int BluetoothData; // the data given from Computer
+
+//bluetooth bridge
+char c = ' ';
+boolean NL = true;
+
+String bluetoothrx;
+
 //eeprom block size
 int eepromblock=10;  //valid values 5,10,15,20,25,50,100
-int pwmpin1 = 10;
-int pwmpin2 = 11;
+int pwmpinA = 9;
+int pwmpinB = 13;  //shared with onboard LED
+
+
+int adcpin0 = A0;
+int adcpin1 = A1;
+int adcpin2 = A2;
+int adcpin3 = A3;
+
+
+int inpin0 = 3;
+int inpin1 = 4;
+int inpin2 = 5;
+
+
+int outpin1=6;
+int outpin2=7;
+
 
 
 
@@ -61,7 +88,24 @@ ISR(TIMER1_COMPA_vect)          // timer compare interrupt service routine
       }
 }
 
+
+
+
+
+
 void setup() {
+
+ 
+  
+  BTSerial.begin(9600);
+  BTSerial.println("Bluetooth On please press 1 or 0 blink LED ..");
+  pinMode(ledpin,OUTPUT);
+  // end of bluetooth initialization
+
+
+
+
+  
   Serial.begin(9600);
   delay(1000);
   /*while (!Serial) {
@@ -70,8 +114,11 @@ void setup() {
   inputString.reserve(200);
 
   //generic pins
-  pinMode(pwmpin1, OUTPUT);
-  pinMode(pwmpin2, OUTPUT);
+  pinMode(pwmpinA, OUTPUT);
+  pinMode(pwmpinB, OUTPUT);
+
+
+  
  
    
   // make the sensor pin an input:
@@ -80,6 +127,8 @@ void setup() {
 
   log("Starting...");
 
+
+/*
   noInterrupts();           // disable all interrupts
   TCCR1A = 0;
   TCCR1B = 0;
@@ -90,8 +139,15 @@ void setup() {
   TCCR1B |= (1 << CS10);     
   TIMSK1 |= (1 << OCIE1A);  // enable timer compare interrupt
   interrupts();             // enable all interrupts    
-
+*/
 }
+
+
+int print (String message) {
+  Serial.println(message);
+  BTSerial.println(message);
+}
+
 
 
 int log (String message) {
@@ -101,7 +157,6 @@ int log (String message) {
   Serial.println(S);
   
   
-  
   //eepromwrite(String(uptimeseconds), &eepromptr);
   //eepromwrite("message", &eepromptr); 
 }
@@ -109,9 +164,9 @@ int log (String message) {
 
 int logcmd (String message) {
   //Serial.println ("logging!!!!");
-  Serial.println ("");
+  //Serial.println ("");
   Serial.print("Cmd: ");
-  Serial.print(uptimeseconds); 
+  //Serial.print(uptimeseconds); 
   Serial.print(" ");
   Serial.println (message);
   
@@ -119,7 +174,46 @@ int logcmd (String message) {
   //eepromwrite("message", &eepromptr); 
 }
 
+void bluetooth() {
+  
 
+ if (BTSerial.available()){
+
+BTSerial.println("bluetooth function");
+
+    ///char inChar = (char)BTSerial.read(); 
+    char inChar = BTSerial.read(); 
+    Serial.print(inChar);
+
+    if (inChar == '\n' || inChar == '\r' ) {
+      stringComplete = true;
+      return;
+    } 
+    // add it to the inputString:
+    inputString += inChar;
+    // if the incoming character is a newline, set a flag
+    // so the main loop can do something about it:
+
+
+
+
+
+
+
+
+
+
+
+   if(BluetoothData=='1'){   // if number 1 pressed ....
+   digitalWrite(ledpin,1);
+   BTSerial.println("LED  On D13 ON ! ");
+   }
+  if (BluetoothData=='0'){// if number 0 pressed ....
+  digitalWrite(ledpin,0);
+   BTSerial.println("LED  On D13 Off ! ");
+  }
+}
+}
 
 
 void loop() {
@@ -127,7 +221,7 @@ void loop() {
   int sensorState = digitalRead(sensor);
 
 
-
+  bluetooth();
 
 
 //L   verbose logging
@@ -152,58 +246,126 @@ void loop() {
   int delimindex=inputString.indexOf(" ");
   Serial.println(delimindex);
   String command = inputString.substring(0, delimindex);
-  dbg(command);
+  //dbg(command);
   String arg = inputString.substring(delimindex+1);
-  dbg(arg);
+  //dbg(arg);
+
+
+   if (command.equals("ATMODE")) {  
+      log("ATMODE DETECTED");
+
+      BTSerial.begin(38400);
+      
+      while(true) {
+ 
+    // Read from the Bluetooth module and send to the Arduino Serial Monitor
+    if (BTSerial.available())
+    {
+        c = BTSerial.read();
+        Serial.write(c);
+    }
+      
+    // Read from the Serial Monitor and send to the Bluetooth module
+    if (Serial.available())
+    {
+        c = Serial.read();
+        BTSerial.write(c);   
+        
+        // Echo the user input to the main window. The ">" character indicates the user entered text.
+        if (NL) { Serial.print(">");  NL = false; }
+        Serial.write(c);
+        if (c==10) { NL = true; }
+         }
+    }
+    }
+
+
+
+
+
+
+
+   if (command.equals("out1")) {  
+      log("out1 detected");
+      Serial.println(arg);
+      digitalWrite(outpin1, int(arg.toInt()));     
+    }
+
+
+   if (command.equals("out2")) {  
+      log("out2 detected");
+      Serial.println(arg);
+      digitalWrite(outpin2, int(arg.toInt()));     
+    }
+
+
+
+   if (command.equals("adc")) {  
+      log("adc detected");
+
+      Serial.println(analogRead(adcpin0));     
+      Serial.println(analogRead(adcpin1));     
+      Serial.println(analogRead(adcpin2));     
+      Serial.println(analogRead(adcpin3));     
+    }
+
+
+   if (command.equals("in")) {  
+      log("in detected");
+
+      Serial.println(digitalRead(inpin0));     
+      Serial.println(digitalRead(inpin1));           
+      Serial.println(digitalRead(inpin2));     
+    }
+
+
+   if (command.equals("pwma")) {  
+      log("pwma detected");
+      Serial.println(int(arg.toInt()));
+      analogWrite(pwmpinA, int(arg.toInt()));     
+    }
+
+   if (command.equals("pwmb")) {  
+      log("pwmb detected");
+      Serial.println(int(arg.toInt()));
+      analogWrite(pwmpinB, int(arg.toInt()));     
+    }
 
    if (command.equals("r")) {  // r, dump eeprom ascii raw
       log("r char detected, dump eeprom decimal");
       dumpeeprom();     
     }
 
-
-
-    if (int(inputString[0]) == 76) {   //L, enable verbose logging
+    if (command.equals("L"))  {   //L, enable verbose logging
       log("L char detected");  
       enableVerbosity(&verbose);
     } 
-    if (int(inputString[0]) == 108) {  // l, disable  verbose logging
+    
+    if (command.equals("l")) {  // l, disable  verbose logging
       log("l char detected");
       disableVerbosity(&verbose);
     }
 
-    if (int(inputString[0]) == 99) {  // c, clear eeprom
+    if (command.equals("c")) {  // c, clear eeprom
       log("c char detected, clear eeprom");
       eepromclear(&eepromptr);
     }
-
-    if (int(inputString[0]) == 102) {  // f, fake message
+    if (command.equals("f")) {  // f, fake message
       log("f char detected, fake message written to eeprom");
       eepromwrite("fakemsg", &eepromptr); 
     }
 
-    if (int(inputString[0]) == 100) {  // d, dump eeprom
+    if (command.equals("d")){  // d, dump eeprom
       log("d char detected, dump eeprom ascii raw");
       dumpeepromasciiraw();
     }
 
-    if (int(inputString[0]) == 68) {  // D, dump eeprom ascii blocks
+    if (command.equals("D")){  // D, dump eeprom ascii blocks
       log("D char detected, dump eeprom ascii blocks");
       dumpeepromblocks();
     }
 
-
-/*
-    if (int(inputString[0]) == 114) {  // r, dump eeprom ascii raw
-      log("r char detected, dump eeprom decimal");
-      dumpeeprom();     
-    }
-
-*/
-
-
-    
-
+  
     // clear the string:
     inputString = "";
     stringComplete = false;
