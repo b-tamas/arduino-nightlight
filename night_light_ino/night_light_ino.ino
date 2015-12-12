@@ -4,18 +4,23 @@
 #include <EEPROM.h>;
 
 
+
+//BLUETOOTH
 SoftwareSerial BTSerial(10, 11); // RX, TX
 int ledpin=13; // led on D13 will show blink on / off
 int BluetoothData; // the data given from Computer
 
-//bluetooth bridge
+//BTH bridge
 char c = ' ';
 boolean NL = true;
-
 String bluetoothrx;
 
-//eeprom block size
+
+//eeprom block size for logging
 int eepromblock=10;  //valid values 5,10,15,20,25,50,100
+
+
+//**********************pin configuration
 int pwmpinA = 9;
 int pwmpinB = 13;  //shared with onboard LED
 
@@ -34,16 +39,10 @@ int inpin2 = 5;
 int outpin1=6;
 int outpin2=7;
 
-
-
-
-#define input and output ports
-  int sensor = 2;
-  int led = 13;
-
+// night-light specific values
+int sensor = 2;
+int led = 13;
 float brightness = 0;    // how bright the LED is
-
-#define fading speed
 float fadingValue = 0.5;    // how many points to fade the LED by
 
 int prolongTreshold = 128;
@@ -51,13 +50,16 @@ int prolongPreset = 30;
 int cycleDelay = 100;
 int state1Level = 12;
 
+int brightnessRawValuePrev = 0;
 int lampminimum=4;
 
 
+//******************generic defines
 int prolong = 0;
 int state = 0;
 int timer = 0;
 int triggered =0;
+
 int verbose = 0;
 int incomingByte;
 int s = 0;
@@ -65,7 +67,7 @@ int eepromptr = 0;
 byte value;
 String inputString = "";         // a string to hold incoming data
 boolean stringComplete = false;  // whether the string is complete
-int brightnessRawValuePrev = 0;
+
 int uptimeseconds;
 int cnt;
 
@@ -144,29 +146,26 @@ void setup() {
 
 
 int print (String message) {
-  Serial.println(message);
-  BTSerial.println(message);
-}
+  //printing to both interface
+  Serial.println(message);  
+  BTSerial.println(message); 
+  }
 
 
 
 int log (String message) {
-  //Serial.println ("logging!!!!");
   String S = "";
   S = "Log: " + uptimeseconds;   S = S + " ";    S = S + message;   
   Serial.println(S);
-  
-  
+
+  //not written to eeprom currently
   //eepromwrite(String(uptimeseconds), &eepromptr);
   //eepromwrite("message", &eepromptr); 
 }
 
 
 int logcmd (String message) {
-  //Serial.println ("logging!!!!");
-  //Serial.println ("");
   Serial.print("Cmd: ");
-  //Serial.print(uptimeseconds); 
   Serial.print(" ");
   Serial.println (message);
   
@@ -175,54 +174,38 @@ int logcmd (String message) {
 }
 
 void bluetooth() {
-  
 
- if (BTSerial.available()){
+     if (BTSerial.available()){
+            char inChar = BTSerial.read(); 
+            Serial.print(inChar);
+        
+            if (inChar == '\n' || inChar == '\r' ) {
+                // if the incoming character is a newline, set a flag
+                // so the main loop can do something about it:
+                stringComplete = true;
+                return;
+            } 
+            
+            inputString += inChar;
 
-BTSerial.println("bluetooth function");
-
-    ///char inChar = (char)BTSerial.read(); 
-    char inChar = BTSerial.read(); 
-    Serial.print(inChar);
-
-    if (inChar == '\n' || inChar == '\r' ) {
-      stringComplete = true;
-      return;
-    } 
-    // add it to the inputString:
-    inputString += inChar;
-    // if the incoming character is a newline, set a flag
-    // so the main loop can do something about it:
-
-
-
-
-
-
-
-
-
-
-
-   if(BluetoothData=='1'){   // if number 1 pressed ....
-   digitalWrite(ledpin,1);
-   BTSerial.println("LED  On D13 ON ! ");
-   }
-  if (BluetoothData=='0'){// if number 0 pressed ....
-  digitalWrite(ledpin,0);
-   BTSerial.println("LED  On D13 Off ! ");
-  }
-}
+            /*            
+            if(BluetoothData=='1'){   // if number 1 pressed ....
+               digitalWrite(ledpin,1);
+               BTSerial.println("LED  On D13 ON ! ");
+            }
+            if (BluetoothData=='0'){// if number 0 pressed ....
+                digitalWrite(ledpin,0);
+                BTSerial.println("LED  On D13 Off ! ");
+            }
+            */
+    }//if available
 }
 
 
 void loop() {
-  // read the sense pin:
-  int sensorState = digitalRead(sensor);
-
+  int sensorState = digitalRead(sensor);      // read the sense pin:
 
   bluetooth();
-
 
 //L   verbose logging
 //l   non-verbose logging
@@ -238,51 +221,41 @@ void loop() {
       eepromwrite(inputString, &eepromptr);*/
       logcmd(inputString);
 
-    //https://en.wikipedia.org/wiki/ASCII
+      //https://en.wikipedia.org/wiki/ASCII
+  
+      int delimindex=inputString.indexOf(" ");
+      Serial.println(delimindex);
+      String command = inputString.substring(0, delimindex);
+      //dbg(command);
+      String arg = inputString.substring(delimindex+1);
+      //dbg(arg);
 
 
-
-
-  int delimindex=inputString.indexOf(" ");
-  Serial.println(delimindex);
-  String command = inputString.substring(0, delimindex);
-  //dbg(command);
-  String arg = inputString.substring(delimindex+1);
-  //dbg(arg);
-
-
-   if (command.equals("ATMODE")) {  
-      log("ATMODE DETECTED");
-
+   if (command.equals("ATMODE")) {  //note: it is not possible to escape from this yet!
+      print("ATMODE DETECTED");
       BTSerial.begin(38400);
-      
       while(true) {
  
-    // Read from the Bluetooth module and send to the Arduino Serial Monitor
-    if (BTSerial.available())
-    {
-        c = BTSerial.read();
-        Serial.write(c);
-    }
+      // Read from the Bluetooth module and send to the Arduino Serial Monitor
+      if (BTSerial.available())
+      {
+          c = BTSerial.read();
+          Serial.write(c);
+      }
       
-    // Read from the Serial Monitor and send to the Bluetooth module
-    if (Serial.available())
-    {
-        c = Serial.read();
-        BTSerial.write(c);   
-        
-        // Echo the user input to the main window. The ">" character indicates the user entered text.
-        if (NL) { Serial.print(">");  NL = false; }
-        Serial.write(c);
-        if (c==10) { NL = true; }
-         }
+      // Read from the Serial Monitor and send to the Bluetooth module
+      if (Serial.available())
+      {
+          c = Serial.read();
+          BTSerial.write(c);   
+          
+          // Echo the user input to the main window. The ">" character indicates the user entered text.
+          if (NL) { Serial.print(">");  NL = false; }
+          Serial.write(c);
+          if (c==10) { NL = true; }
+          }
     }
     }
-
-
-
-
-
 
 
    if (command.equals("out1")) {  
@@ -303,10 +276,11 @@ void loop() {
    if (command.equals("adc")) {  
       log("adc detected");
 
-      Serial.println(analogRead(adcpin0));     
-      Serial.println(analogRead(adcpin1));     
-      Serial.println(analogRead(adcpin2));     
-      Serial.println(analogRead(adcpin3));     
+      print(String(analogRead(adcpin0)));     
+      print(String(analogRead(adcpin1)));     
+      print(String(analogRead(adcpin2)));           
+      print(String(analogRead(adcpin3)));     
+   
     }
 
 
@@ -364,13 +338,11 @@ void loop() {
       log("D char detected, dump eeprom ascii blocks");
       dumpeepromblocks();
     }
-
   
     // clear the string:
     inputString = "";
     stringComplete = false;
   }
-
 
 
 
@@ -519,21 +491,19 @@ int pwm(int ledpin, int brightnessRawValue){
       Serial.println(brightnessTransformedValue);
       analogWrite(led, brightnessTransformedValue); 
   } 
-  
   brightnessRawValuePrev = brightnessRawValue;
 }
 
 
-
 int enableVerbosity(int* verb) {
   *verb = 1;
-  Serial.println("*** Verbose logging enabled ***");  
+  print("*** Verbose logging enabled ***");  
 }
 
 
 int disableVerbosity(int* verb) {
   *verb = 0;
-  Serial.println("*** Verbose logging disabled ***");  
+  print("*** Verbose logging disabled ***");  
 }
 
 
@@ -557,14 +527,12 @@ void serialEventRun(void) {
 }
 
 
-
-
 //**********************************************
 
 
 int dbg (String msg) {
   if (verbose) {
-    Serial.println(msg);
+    print(msg);
   }
 
 }
