@@ -192,7 +192,7 @@ int cycleDelay = 100;
 int state1Level = 70;
 
 int brightnessRawValuePrev = 0;
-int lampminimum = 4;
+int lampminimum = 0;
 int prolong = 0;
 int state = 0;
 int timer = 0;
@@ -211,9 +211,7 @@ int sensorState;
 int uptimeseconds;
 int cnt;
 
-int i;  //led cylon base
-
-
+int i;  //led rainbow base
 
 /*
   0: idle, 0 fenyero. ha triggerelodott, 1-esbe lep
@@ -223,50 +221,31 @@ int i;  //led cylon base
   4: csokkenti a fenyerot, de ha van triggereles, visszalep a 3-asba
 */
 
-
-
-
-
 int pwm(int brightnessRawValue) {
   int brightnessTransformedValue;
 
-  /*
-    if (brightnessRawValue < 30 ) {
-      brightnessTransformedValue = brightnessRawValue / 5;
-    }
-    if (brightnessRawValue >= 30 && brightnessRawValue < 50 ) {
-      brightnessTransformedValue = (brightnessRawValue - 30) / 4 + 6;
-    }
-    if (brightnessRawValue >= 50 && brightnessRawValue < 100 ) {
-      brightnessTransformedValue = (brightnessRawValue - 50 ) / 2 + 12;
-    }
-    if (brightnessRawValue >= 100 && brightnessRawValue < 150 ) {
-      brightnessTransformedValue = (brightnessRawValue - 100 ) / 0.44 + 37;
-    }
-    if (brightnessRawValue >= 150 ) {
-      brightnessTransformedValue = brightnessRawValue ;
-    }
-  */
+
+  //https://diarmuid.ie/blog/pwm-exponential-led-fading-on-arduino-or-other-platforms/
 
 
-  float R;
-  R = (255 * log10(2)) / (log10(255));
-  brightnessTransformedValue = pow (2, ( brightnessRawValue / R)) - 1;
-
-
-
-
-
+  /*if (brightnessRawValue == 0 )
+  {
+    brightnessTransformedValue = 0;
+  }
+  else
+  {*/
+    float R;
+    R = (255 * log10(2)) / (log10(255));
+    brightnessTransformedValue = (pow (2, ( brightnessRawValue / R)) - 1);
+ /*/ }*/
 
 
   if (brightnessRawValue != brightnessRawValuePrev) {
-    /* dbg("brightnessRawValue  ");
-      dbg(String(brightnessRawValue));
-      dbg("\t   brightnessTransformedValue  ");
-      dbg(String(brightnessTransformedValue));*/
-
     setLEDs(brightnessTransformedValue);
   }
+
+  Serial.println(String(brightnessTransformedValue));
+  
   brightnessRawValuePrev = brightnessRawValue;
 }
 
@@ -370,11 +349,6 @@ void    dumpeepromasciiraw() {
 
 
 
-
-
-
-
-
 ISR(TIMER1_COMPA_vect)          // timer compare interrupt service routine
 {
   cnt++;
@@ -417,34 +391,6 @@ void setLEDs(int intensityR, int intensityG, int intensityB )
 
 
 
-// Cascades a single direction. One time.
-void cascade(unsigned long color, byte direction, byte wait)
-{
-  if (direction == TOP_DOWN)
-  {
-    for (int i = 0; i < LED_COUNT; i++)
-    {
-      clearLEDs();  // Turn off all LEDs
-      leds.setPixelColor(i, color);  // Set just this one
-      leds.show();
-      delay(wait);
-    }
-  }
-  else
-  {
-    for (int i = LED_COUNT - 1; i >= 0; i--)
-    {
-      clearLEDs();
-      leds.setPixelColor(i, color);
-      leds.show();
-      delay(wait);
-    }
-  }
-}
-
-
-
-
 void setup() {
 
 
@@ -453,9 +399,6 @@ void setup() {
   BTSerial.println("Bluetooth On please press 1 or 0 blink LED ..");
   pinMode(ledpin, OUTPUT);
   // end of bluetooth initialization
-
-
-
 
 
   Serial.begin(9600);
@@ -475,32 +418,24 @@ void setup() {
   clearLEDs();   // This function, defined below, turns all LEDs off...
   leds.show();   // ...but the LEDs don't actually update until you call this.
 
+  randomSeed(analogRead(7));
 
 
 
   /*
-        for (int i=0; i<LED_COUNT; i++)
-        {
-          leds.setPixelColor(i, 0x0f0f0f);
-        }
-      leds.show();
-  */
-
-  /*
-
-          // Ride the Rainbow Road
-      for (int i=0; i<LED_COUNT*3; i++)
-      {
-        rainbow(i);
-        delay(100);  // Delay between rainbow slides
-      }
+    // Ride the Rainbow Road
+    for (int i = 0; i < LED_COUNT * 1; i++)
+    {
+      rainbow(i);
+      delay(50);  // Delay between rainbow slides
+    }
   */
 
 
 
 
   // Indigo cylon
-  for (int i = 0; i < 3; i++)
+  for (int i = 0; i < 1; i++)
   {
     // cylon function: first param is color, second is time (in ms) between cycles
     cylon(INDIGO, 100);  // Indigo cylon eye!
@@ -509,18 +444,8 @@ void setup() {
 
 
 
-  // A light shower of spring green rain
-  // This will run the cascade from top->bottom 1 times
-  for (int i = 0; i < 1; i++)
-  {
-    // First parameter is the color, second is direction, third is ms between falls
-    cascade(MEDIUMSPRINGGREEN, TOP_DOWN, 50);
-  }
 
   clearLEDs();
-
-
-
 
   // make the sensor pin an input:
   pinMode(sensor, INPUT);
@@ -528,19 +453,6 @@ void setup() {
 
   log("Starting...");
 
-
-  /*
-    noInterrupts();           // disable all interrupts
-    TCCR1A = 0;
-    TCCR1B = 0;
-    TCNT1  = 0;
-    OCR1A = 31250;            // compare match register 16MHz/256/2Hz
-    TCCR1B |= (1 << WGM12);   // CTC mode
-    TCCR1B |= (1 << CS12);    // 1024 prescaler
-    TCCR1B |= (1 << CS10);
-    TIMSK1 |= (1 << OCIE1A);  // enable timer compare interrupt
-    interrupts();             // enable all interrupts
-  */
 }
 
 
@@ -837,6 +749,7 @@ void HandleIncomingMsg() {
   if (command.equals("auto")) {
     setLEDs(0x00, 0x00, 0x00);
     s = 1;
+    brightness = lampminimum;
   }
 
   /* LED control commands*/
@@ -865,22 +778,25 @@ void HandleIncomingMsg() {
     s = 10;
   }
 
-
-
-
-
   if (command.equals("rainbow")) {
 
     s = 11;
   }
 
+  if (command.equals("rand")) {
 
+    s = 12;
+  }
 
-
-
-
-
-
+  if (command.equals("help")) {
+    print("**********************");
+    print("help - this help");
+    print("off, on, red, green, blue");
+    print("auto - back to motion controlled mode");
+    print("rainbow");
+    print("rand");
+    print("************11111111111111111111111111111111111111111111**********");
+  }
 
   // clear the string:
   inputString = "";
@@ -889,28 +805,19 @@ void HandleIncomingMsg() {
 
 void StateMachine() {
 
-
-
-
   /*1 idle, check for trigger*/
 
   /*2 dim up from state 1 to state 4*/
   /*3 dim down from state 4 to state 1*/
 
-  /*4 half bright, check trigger*/
+  /*4 half bright, setup state*/
+  /*40 half bright, check trigger*/
 
   /*5 dim up from state 4 to state 7*/
   /*6 dim down from state 7 to state 5*/
 
-  /*7 full bright, check trigger*/
-
-
-
-
-
-
-
-
+  /*7 full bright, setup state*/
+  /*70 full bright, check trigger*/
 
 
   sensorState = digitalRead(sensor);
@@ -931,7 +838,7 @@ void StateMachine() {
 
     case 2:
       if (brightness < state1Level - fadingValue) {
-        brightness +=  fadingValue; // + brightness  ;
+        brightness +=  fadingValue;
         dbg("Dim UP in state 2");
       }
       else {
@@ -944,7 +851,7 @@ void StateMachine() {
 
 
     case 3:
-      if (brightness != 0) {      //FIXME, ennel pontosabb szures kell majd!!!!
+      if (brightness != 0) {
         brightness -= fadingValue ;
       }
       else {
@@ -1023,10 +930,6 @@ void StateMachine() {
       break;
 
 
-
-
-
-
     case 6:
       if (brightness < state1Level - fadingValue) {
         s = 4;
@@ -1038,18 +941,8 @@ void StateMachine() {
       else {
         brightness -=  fadingValue; // + brightness  ;
         dbg("Dim UP in state 2");
-
       }
       break;
-
-
-
-
-
-
-
-
-
 
 
     case 7:
@@ -1097,13 +990,27 @@ void StateMachine() {
 
 
     case 11:  //rainbow
-
-
-      rainbow(int(i/5));
+      rainbow(int(i / 5));
       i++;
       break;
 
 
+    case 12:
+      if (i == 50)
+      {
+        int randNumber1 = random(255);
+        int randNumber2 = random(255);
+        int randNumber3  = 382 - randNumber1 - randNumber2;
+
+        if ( randNumber3 < 0 ) {
+          randNumber3 = 0;
+        }
+        setLEDs(randNumber1, randNumber2, randNumber3);
+        i = 0;
+      }
+
+      i++;
+      break;
   }
 }
 
@@ -1125,10 +1032,7 @@ void loop() {
     HandleIncomingMsg();
   }
 
-
-
   StateMachine();
-
 
   dbg("Brightness: ");
   dbg(String(brightness));
