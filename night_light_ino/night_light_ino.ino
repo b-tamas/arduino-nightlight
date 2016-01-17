@@ -183,11 +183,13 @@ String bluetoothrx;
 #define led 13
 float brightness = 0;    // how bright the LED is
 float fadingValue = 0.5;    // how many points to fade the LED by
+int configured;
+
 
 int prolongTreshold = 128;
 int prolongPreset = 30;
 int cycleDelay = 100;
-int state1Level = 12;
+int state1Level = 70;
 
 int brightnessRawValuePrev = 0;
 int lampminimum = 4;
@@ -198,7 +200,7 @@ int triggered = 0;
 
 int verbose = 0;
 int incomingByte;
-int s = 0;
+int s = 1;
 int eepromptr = 0;
 byte value;
 String inputString = "";         // a string to hold incoming data
@@ -208,6 +210,10 @@ int sensorState;
 
 int uptimeseconds;
 int cnt;
+
+int i;  //led cylon base
+
+
 
 /*
   0: idle, 0 fenyero. ha triggerelodott, 1-esbe lep
@@ -224,34 +230,42 @@ int cnt;
 int pwm(int brightnessRawValue) {
   int brightnessTransformedValue;
 
-  if (brightnessRawValue <= 30 ) {
-    brightnessTransformedValue = brightnessRawValue / 5;
-  }
-  if (brightnessRawValue > 30 && brightnessRawValue < 50 ) {
-    brightnessTransformedValue = (brightnessRawValue - 30) / 4 + 6;
-  }
-  if (brightnessRawValue >= 50 && brightnessRawValue < 100 ) {
-    brightnessTransformedValue = (brightnessRawValue - 50 ) / 2 + 12;
-  }
-  if (brightnessRawValue >= 100 && brightnessRawValue < 150 ) {
-    brightnessTransformedValue = (brightnessRawValue - 100 ) / 1.3 + 37;
-  }
-  if (brightnessRawValue >= 150 ) {
-    brightnessTransformedValue = brightnessRawValue ;
-  }
+  /*
+    if (brightnessRawValue < 30 ) {
+      brightnessTransformedValue = brightnessRawValue / 5;
+    }
+    if (brightnessRawValue >= 30 && brightnessRawValue < 50 ) {
+      brightnessTransformedValue = (brightnessRawValue - 30) / 4 + 6;
+    }
+    if (brightnessRawValue >= 50 && brightnessRawValue < 100 ) {
+      brightnessTransformedValue = (brightnessRawValue - 50 ) / 2 + 12;
+    }
+    if (brightnessRawValue >= 100 && brightnessRawValue < 150 ) {
+      brightnessTransformedValue = (brightnessRawValue - 100 ) / 0.44 + 37;
+    }
+    if (brightnessRawValue >= 150 ) {
+      brightnessTransformedValue = brightnessRawValue ;
+    }
+  */
+
+
+  float R;
+  R = (255 * log10(2)) / (log10(255));
+  brightnessTransformedValue = pow (2, ( brightnessRawValue / R)) - 1;
+
+
+
+
+
+
 
   if (brightnessRawValue != brightnessRawValuePrev) {
-    Serial.print("brightnessRawValue  ");
-    Serial.print(brightnessRawValue);
-    Serial.print("\t   brightnessTransformedValue  ");
-    Serial.println(brightnessTransformedValue);
-
-
-    
-    //analogWrite(led, brightnessTransformedValue);
+    /* dbg("brightnessRawValue  ");
+      dbg(String(brightnessRawValue));
+      dbg("\t   brightnessTransformedValue  ");
+      dbg(String(brightnessTransformedValue));*/
 
     setLEDs(brightnessTransformedValue);
-    
   }
   brightnessRawValuePrev = brightnessRawValue;
 }
@@ -388,13 +402,18 @@ void setLEDs(int intensity)
     leds.setPixelColor(i, intensity, intensity, intensity);
     //leds.setPixelColor(i, GREEN);
   }
-
-    leds.show();
-  
+  leds.show();
 }
 
 
-
+void setLEDs(int intensityR, int intensityG, int intensityB )
+{
+  for (int i = 0; i < LED_COUNT; i++)
+  {
+    leds.setPixelColor(i, intensityR, intensityG, intensityB);
+  }
+  leds.show();
+}
 
 
 
@@ -467,39 +486,38 @@ void setup() {
       leds.show();
   */
 
-
   /*
-        // Ride the Rainbow Road
-    for (int i=0; i<LED_COUNT*10; i++)
-    {
-      rainbow(i);
-      delay(100);  // Delay between rainbow slides
-    }
+
+          // Ride the Rainbow Road
+      for (int i=0; i<LED_COUNT*3; i++)
+      {
+        rainbow(i);
+        delay(100);  // Delay between rainbow slides
+      }
   */
 
 
 
-  /*
-    // Indigo cylon
-    // Do a cylon (larson scanner) cycle 10 times
-    for (int i=0; i<10; i++)
-    {
-     // cylon function: first param is color, second is time (in ms) between cycles
-     cylon(INDIGO, 100);  // Indigo cylon eye!
-    }
-  */
+
+  // Indigo cylon
+  for (int i = 0; i < 3; i++)
+  {
+    // cylon function: first param is color, second is time (in ms) between cycles
+    cylon(INDIGO, 100);  // Indigo cylon eye!
+  }
+
 
 
 
   // A light shower of spring green rain
-  // This will run the cascade from top->bottom 20 times
-  for (int i = 0; i < 2; i++)
+  // This will run the cascade from top->bottom 1 times
+  for (int i = 0; i < 1; i++)
   {
     // First parameter is the color, second is direction, third is ms between falls
     cascade(MEDIUMSPRINGGREEN, TOP_DOWN, 50);
   }
 
-
+  clearLEDs();
 
 
 
@@ -812,6 +830,58 @@ void HandleIncomingMsg() {
     dumpeepromblocks();
   }
 
+
+
+
+
+  if (command.equals("auto")) {
+    setLEDs(0x00, 0x00, 0x00);
+    s = 1;
+  }
+
+  /* LED control commands*/
+  if (command.equals("off")) { // switch off leds
+    setLEDs(0x00, 0x00, 0x00);
+    s = 10;
+  }
+
+  if (command.equals("on")) { // switch on leds
+    setLEDs(0xFF, 0xFF, 0xFF);
+    s = 10;
+  }
+
+  if (command.equals("red")) {
+    setLEDs(0xFF, 0x20, 0x20);
+    s = 10;
+  }
+
+  if (command.equals("green")) {
+    setLEDs(0x20, 0xFF, 0x20);
+    s = 10;
+  }
+
+  if (command.equals("blue")) {
+    setLEDs(0x20, 0x20, 0xFF);
+    s = 10;
+  }
+
+
+
+
+
+  if (command.equals("rainbow")) {
+
+    s = 11;
+  }
+
+
+
+
+
+
+
+
+
   // clear the string:
   inputString = "";
   stringComplete = false;
@@ -822,126 +892,219 @@ void StateMachine() {
 
 
 
-  /* switch (s)
-   0: idle, no action, no light, check trigger
-   1: dim up to a medium value
-   2. medium light, check new      trigger
-   3. medium to maximum light
-   4. medium to dark, check new trigger   
-   8. no light, no action, no trigger
-   */
-  int sensorState = digitalRead(sensor);      // read the sense pin:
-  Serial.println(sensorState);
+  /*1 idle, check for trigger*/
 
+  /*2 dim up from state 1 to state 4*/
+  /*3 dim down from state 4 to state 1*/
 
-    switch (s) {
-      case 0:    //idle status
+  /*4 half bright, check trigger*/
 
-        if (sensorState == 0) {
-          Serial.print(uptimeseconds); Serial.println("0->0");
-          break;
-        }
-        else  {
-          
-          s = 1;
-                Serial.print(uptimeseconds); Serial.println("0->1");
-               eepromwrite("0->1", &eepromptr);
+  /*5 dim up from state 4 to state 7*/
+  /*6 dim down from state 7 to state 5*/
 
-          log("0->1");
-          brightness = lampminimum;
-
-          break;
-        }
-        break;
-
-      case 1:   // dim up,, nem figyeli a triggert kozben
-        if (brightness < state1Level - fadingValue) {
-          brightness +=  fadingValue; // + brightness  ;
-          if (verbose) Serial.println("Dim UP in state 1");
-        }
-        else {
-          s = 2;
-          Serial.print(uptimeseconds); Serial.println("1->2");
-          eepromwrite("1->2", &eepromptr);
-          break;
-        }
-        break;
-
-      case 2:   // brightness folyamatos erteken tartasa, figyeli a triggert
-        if (timer == 0 ) {
-          timer = 100;
-          triggered = 0;
-          break;
-        }
-
-        if (sensorState == 1) {
-          triggered = 1;
-          if (verbose) Serial.println("trigger during state 2");
-        }
-
-        if (verbose) Serial.println("timer :");
-        if (verbose) Serial.println(timer);
-
-        timer --;
-        if (timer == 0) {
-          if (verbose)    Serial.println("timer=0!!!");
-          if ( triggered == 1) {
-            s = 3;
-            Serial.print(uptimeseconds); Serial.println("2->3");
-            eepromwrite("2->3", &eepromptr);
-            break;
-          }
-          else { //triggered ==0
-            s = 4;
-            Serial.print(uptimeseconds); Serial.println("2->4");
-            eepromwrite("2->4", &eepromptr);
-            break;
-          }
-        }
-        break;
+  /*7 full bright, check trigger*/
 
 
 
-      case 3:   // movement during the half-bright period
-        if (verbose)    Serial.println("movement during the half-bright period");
-        if (brightness < 255 - fadingValue) {
-          brightness += fadingValue ;
-          if (verbose)      Serial.println("Dim UP in state 3");
-          break;
-        }
-        else {
-          s = 2;
-          Serial.print(uptimeseconds); Serial.println("3->2");
-          eepromwrite("3->2", &eepromptr);
-          break;
-        }
+
+
+
+
+
+
+
+  sensorState = digitalRead(sensor);
+
+  switch (s) {
+    case 1:    //idle status
+      brightness = lampminimum;
+
+      if (sensorState == 1) {
         s = 2;
+
+        dbg(String(uptimeseconds)); dbg("1->2");
+        eepromwrite("1->2", &eepromptr);
+        log("1->2");
+        print("1->2");
+      }
+      break;
+
+    case 2:
+      if (brightness < state1Level - fadingValue) {
+        brightness +=  fadingValue; // + brightness  ;
+        dbg("Dim UP in state 2");
+      }
+      else {
+        s = 4;
+        print("2->4");
+        eepromwrite("2->4", &eepromptr);
         break;
+      }
+      break;
+
+
+    case 3:
+      if (brightness != 0) {      //FIXME, ennel pontosabb szures kell majd!!!!
+        brightness -= fadingValue ;
+      }
+      else {
+        s = 1;
+        print("no trigger during state 3 (dim down)");
+        print("3->1");
+        eepromwrite("3->1", &eepromptr);
+      }
+
+      if (sensorState == 1) {
+        print("trigger during state 3 (dim down)");
+        print("3->2");
+        eepromwrite("3->2", &eepromptr);
+        s = 2;
+
+      }
+      break;
 
 
 
-      case 4: // no movement during the half-bright period, dim down to idle state
-        if (brightness != 0) {      //FIXME, ennel pontosabb szures kell majd!!!!
-          brightness -= fadingValue ;
+
+
+
+    case 4:
+      dbg("State 4 single configuration");
+      timer = 100;
+      triggered = 0;
+      s = 40;
+      break;
+
+
+
+
+    case 40:
+      if (sensorState == 1) {
+        triggered = 1;
+        dbg("trigger during state 40");
+      }
+
+      dbg("timer :");
+      dbg(String(timer));
+
+      timer --;
+      if (timer == 0) {
+        dbg("timer=0!!!");
+        if ( triggered == 1) {
+          s = 5;
+          print("40->5");
+          eepromwrite("40->5", &eepromptr);
+          break;
         }
-        else {
-          s = 0;
-          Serial.println("no trigger during state 4 (dim down)");
-          Serial.print(uptimeseconds); Serial.println("4->0");
-          eepromwrite("4->0", &eepromptr);
-        }
-
-        if (sensorState == 1) {
-          Serial.println("trigger during state 4 (dim down)");
-          Serial.print(uptimeseconds); Serial.println("4->3");
-          eepromwrite("4->3", &eepromptr);
+        else { //triggered ==0
           s = 3;
-
+          print("40->3");
+          eepromwrite("40->3", &eepromptr);
+          break;
         }
+      }
+      break;
+
+
+    case 5:
+      dbg("movement during the half-bright period");
+      if (brightness < 255 - fadingValue) {
+        brightness += fadingValue ;
+        dbg("Dim UP in state 3");
         break;
-    }
+      }
+      else {
+        s = 7;
+        print("5->7");
+        eepromwrite("5->7", &eepromptr);
+        break;
+      }
+      //s = 2;
+      break;
 
 
+
+
+
+
+    case 6:
+      if (brightness < state1Level - fadingValue) {
+        s = 4;
+        print("2->4");
+        eepromwrite("2->4", &eepromptr);
+        break;
+
+      }
+      else {
+        brightness -=  fadingValue; // + brightness  ;
+        dbg("Dim UP in state 2");
+
+      }
+      break;
+
+
+
+
+
+
+
+
+
+
+
+    case 7:
+
+      dbg("State 7 single configuration");
+      timer = 100;
+      triggered = 0;
+      //configured = 1;
+      s = 70;
+      break;
+
+    case 70:
+
+      if (sensorState == 1) {
+        triggered = 1;
+        dbg("trigger during state 70");
+      }
+
+      dbg("timer :");
+      dbg(String(timer));
+
+      timer --;
+      if (timer == 0) {
+        dbg("timer=0!!!");
+        if ( triggered == 1) {
+          s = 7;
+          print("70->7");
+          eepromwrite("70->7", &eepromptr);
+          break;
+        }
+        else { //triggered ==0
+          s = 6;
+          print("70->6");
+          eepromwrite("70->6", &eepromptr);
+          break;
+        }
+      }
+      break;
+
+
+
+
+    case 10: /*auto-light is disabled*/
+      break;
+
+
+    case 11:  //rainbow
+
+
+      rainbow(int(i/5));
+      i++;
+      break;
+
+
+  }
 }
 
 
@@ -961,22 +1124,22 @@ void loop() {
   if (stringComplete) {
     HandleIncomingMsg();
   }
-  
+
+
+
   StateMachine();
 
-    if (verbose) {
-      Serial.print("Brightness: ");
-      Serial.println(brightness);
-    }
 
-   
-    pwm(int(brightness));
-    delay(cycleDelay);        // delay in between reads for stability
-  
+  dbg("Brightness: ");
+  dbg(String(brightness));
+
+
+
+  pwm(int(brightness));
+  delay(cycleDelay);        // delay in between reads for stability
+
 }
 //*****************************************************************
-
-
 
 
 
