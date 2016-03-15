@@ -1,6 +1,6 @@
 #include <Boards.h>
 #include <SoftwareSerial.h>// import the serial library
-#include <EEPROM.h>;
+#include <EEPROM.h>
 
 //LED chain
 #include <Adafruit_NeoPixel.h>
@@ -9,6 +9,9 @@
 Adafruit_NeoPixel leds = Adafruit_NeoPixel(LED_COUNT, LEDCHAIN, NEO_GRB + NEO_KHZ800);
 #define TOP_DOWN 0
 #define DOWN_TOP 1
+
+
+
 
 #define BLACK      0x000000
 #define NAVY      0x000080
@@ -152,6 +155,10 @@ Adafruit_NeoPixel leds = Adafruit_NeoPixel(LED_COUNT, LEDCHAIN, NEO_GRB + NEO_KH
 #define WHITE     0xFFFFFF
 
 
+
+
+
+
 //BLUETOOTH
 SoftwareSerial BTSerial(10, 11); // RX, TX
 int ledpin = 13; // led on D13 will show blink on / off
@@ -220,6 +227,9 @@ int i;  //led rainbow base
   3: noveli a fenyerot max-ra. ha elerte, atlep a 2-esbe
   4: csokkenti a fenyerot, de ha van triggereles, visszalep a 3-asba
 */
+
+
+
 
 int pwm(int brightnessRawValue) {
   int brightnessTransformedValue;
@@ -291,6 +301,13 @@ int dbg (String msg) {
   }
 
 }
+
+
+
+
+
+
+
 
 void eepromclear( int* ptr) {
   for (int i = 0; i < 512; i++)
@@ -661,6 +678,9 @@ void HandleIncomingMsg() {
   }
 
 
+
+/*
+
   if (command.equals("out1")) {
     log("out1 detected");
     Serial.println(arg);
@@ -744,7 +764,7 @@ void HandleIncomingMsg() {
 
 
 
-
+*/
 
   if (command.equals("auto")) {
     setLEDs(0x00, 0x00, 0x00);
@@ -789,13 +809,13 @@ void HandleIncomingMsg() {
   }
 
   if (command.equals("help")) {
-    print("**********************");
+    print("*****");
     print("help - this help");
     print("off, on, red, green, blue");
     print("auto - back to motion controlled mode");
     print("rainbow");
     print("rand");
-    print("************11111111111111111111111111111111111111111111**********");
+    print("*****");
   }
 
   // clear the string:
@@ -1035,14 +1055,67 @@ void loop() {
   StateMachine();
 
   dbg("Brightness: ");
-  dbg(String(brightness));
-
-
+  char outstr[5];
+  dtostrf(brightness, 5, 0, outstr);
+  dbg(outstr);
 
   pwm(int(brightness));
   delay(cycleDelay);        // delay in between reads for stability
 
 }
+
+
+
+
+
+
+
+int out(String msg, String details, char dbg, char printout, char eeprom) 
+{
+
+
+if (eeprom == 1 ) {
+    eepromwrite(msg, &eepromptr);   
+    //details field is skipped here
+}
+
+
+  if (printout == 1 ) {
+    Serial.println(msg);
+    BTSerial.println(msg);
+    return 1;
+  }
+  
+  if (dbg == 1 ) {
+    if (verbose) {
+        Serial.println(msg);
+        BTSerial.println(msg);
+        Serial.println(details);
+        BTSerial.println(details);
+        }
+  else
+      {
+        Serial.println(msg);
+        Serial.println(details);
+  }
+
+    
+   
+  }
+
+    
+  
+}
+
+
+
+
+
+
+
+
+
+
 //*****************************************************************
 
 
