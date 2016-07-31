@@ -413,7 +413,8 @@ void setup() {
 
 
   BTSerial.begin(9600);
-  BTSerial.println("Bluetooth On please press 1 or 0 blink LED ..");
+  BTSerial.println("Welcome on Bluetooth");
+  BTSerial.println("ask help for usage");
   pinMode(ledpin, OUTPUT);
   // end of bluetooth initialization
 
@@ -521,6 +522,37 @@ void cylon(unsigned long color, byte wait)
     delay(wait);
   }
 }
+
+
+
+
+
+void rainbow2(byte startPosition)
+{
+  // Need to scale our rainbow. We want a variety of colors, even if there
+  // are just 10 or so pixels.
+  int rainbowScale = 192 / LED_COUNT/2;
+
+  // Next we setup each pixel with the right color
+  for (int i = 0; i < LED_COUNT; i++)
+  {
+    // There are 192 total colors we can get out of the rainbowOrder function.
+    // It'll return a color between red->orange->green->...->violet for 0-191.
+    leds.setPixelColor(i, rainbowOrder((rainbowScale * (i + startPosition)) % 192));
+  }
+  // Finally, actually turn the LEDs on:
+  leds.show();
+}
+
+
+
+
+
+
+
+
+
+
 
 
 // Prints a rainbow on the ENTIRE LED strip.
@@ -788,6 +820,12 @@ void HandleIncomingMsg() {
     s = 10;
   }
 
+  if (command.equals("yellow")) {
+    setLEDs(0xFF, 0xFF, 0x20);
+    s = 10;
+  }
+
+
   if (command.equals("green")) {
     setLEDs(0x20, 0xFF, 0x20);
     s = 10;
@@ -811,7 +849,7 @@ void HandleIncomingMsg() {
   if (command.equals("help")) {
     print("*****");
     print("help - this help");
-    print("off, on, red, green, blue");
+    print("off, on, red, green, blue, yellow");
     print("auto - back to motion controlled mode");
     print("rainbow");
     print("rand");
@@ -1010,8 +1048,19 @@ void StateMachine() {
 
 
     case 11:  //rainbow
-      rainbow(int(i / 5));
-      i++;
+      //rainbow(int(i / 5));
+      //i++;
+
+
+    for (int i = 0; i < LED_COUNT * 2; i++)
+    {
+      rainbow2(i);
+      delay(100);  // Delay between rainbow slides
+    }
+
+
+
+      
       break;
 
 
